@@ -1,5 +1,8 @@
-# 统一 LF：fpk 里的 shell 脚本、manifest 对换行敏感，Windows 检出也不能变 CRLF
+# 统一 LF：fpk 里的 shell 脚本对换行敏感，Windows 检出也不能变 CRLF
 * text=auto eol=lf
+
+# fnOS 的 manifest 反过来必须是 CRLF，否则安装器解析失败
+fnos/manifest text eol=crlf
 
 *.png binary
 *.PNG binary

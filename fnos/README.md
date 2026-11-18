@@ -5,7 +5,8 @@
 - 应用名：`nasdash`，显示名「NAS 状态面板」
 - 类型：`native`（不依赖 Docker，只用 NAS 自带的 `python3`）
 - 入口：走飞牛统一网关 `/app/nasdash/`，**不占端口**，外网经 FN Connect 也能打开
-- 产物：`dist/nasdash-1.0.1.fpk`（约 41 KB）
+- 产物：`dist/nasdash-1.0.2.fpk`（约 41 KB）
+- 开发者 / 发布者：Linus（<https://github.com/jhonlinus/nas-dash>）
 
 ## 安装
 
