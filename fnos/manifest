@@ -1,0 +1,17 @@
+appname               = nasdash
+version               = 1.0.1
+display_name          = NAS 状态面板
+desc                  = <h2>NAS 状态面板</h2><p>单文件零依赖的 NAS 实时监控面板：CPU / 内存 / 网络 / 存储卷 / 硬盘 SMART / 容器资源 / 阵列与传感器 / 告警。数据来自宿主机 /proc、/sys、cgroup 与 smartctl，5 秒采样，支持多配色与自定义布局。</p><p>通过飞牛统一网关访问（/app/nasdash/），默认不启用登录认证；需要密码可自行在反代层或 etc/nasdash.env 中配置。</p>
+platform              = x86
+source                = thirdparty
+maintainer            = jhonlinus
+maintainer_url        = https://github.com/jhonlinus/nas-dash
+distributor           = jhonlinus
+distributor_url       = https://github.com/jhonlinus/nas-dash
+install_type          =
+ctl_stop              = true
+checkport             = false
+service_port          = 8066
+micro_app             = true
+desktop_uidir         = ui
+desktop_applaunchname = nasdash.Application

@@ -1,0 +1,30 @@
+# 容器化运行（实验性）。
+#
+# 容器里 /proc、df 都是容器自己的视图，只有挂了 pid: host 才能看到真实进程；
+# SMART 与真实卷容量基本不可用，想要完整数据请原生部署（见 README）。
+services:
+  nas-dash:
+    build: .
+    container_name: nas-dash
+    restart: unless-stopped
+
+    # 关键：共享宿主 PID 命名空间，才能读到宿主 /proc/stat、/proc/meminfo
+    pid: host
+
+    ports:
+      # 只绑回环，对外请走反代（deploy/nginx.conf.example）
+      - "127.0.0.1:8066:8066"
+
+    volumes:
+      - ./data:/app/data
+      # 容器列表需要 docker.sock（只读即可）
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # 温度、SMART 需要 /sys；想读 SMART 还要打开下面两行（需要特权）
+      - /sys:/sys:ro
+      # - /dev:/dev:ro
+    # privileged: true          # 读 SMART / 传感器时才需要
+
+    environment:
+      - TZ=Asia/Shanghai
+
+    # 容器内必须先 bind 0.0.0.0，端口映射才通；镜像 CMD 已经带了这个参数

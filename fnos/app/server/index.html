@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night" data-density="normal">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NAS 状态</title>
+<script>
+(function(){try{
+  var r=document.documentElement;
+  r.setAttribute('data-theme', localStorage.getItem('nasdash.theme')||'night');
+  r.setAttribute('data-density', localStorage.getItem('nasdash.density')||'normal');
+  /* 弱设备检测：老 iOS（<16，如 iPad Air 2 最高 iOS 15）或 ≤2G 内存设备 → 轻量渲染。
+     backdrop-filter 大半径模糊 + fixed 渐变背景在这类设备会耗尽 GPU/内存，
+     触发 Safari 崩溃自动重载（表现为页面一直刷新、卡死）。 */
+  var weak=false;
+  try{
+    if(navigator.deviceMemory && navigator.deviceMemory<=2) weak=true;
+    var m=navigator.userAgent.match(/OS (\d+)_/);
+    if(m && +m[1]<16) weak=true;
+  }catch(_){}
+  if(weak) r.setAttribute('data-lite','1');
+}catch(e){}})();
+</script>
+<style>
+:root{
+  --bg:#0a0e14; --bg2:#070a0f; --card:#111823; --card2:#0e141d;
+  --line:#1c2634; --line2:#283445;
+  --tx:#e8eef7; --mut:#7d8c9e; --dim:#556272;
+  --acc:#38bdf8; --teal:#2dd4bf; --ok:#34d399; --warn:#f5a524; --bad:#f2555a; --pur:#a78bfa;
+  --r:14px;
+  /* 主题化外设 */
+  --glow1:rgba(56,189,248,.10); --glow2:rgba(167,139,250,.07);
+  --track:#1b2430; --sunk:#0d131b; --sunk2:#131b25; --scroll:#28323f;
+  --mark1:#1c2735; --mark2:#0f151e; --markglow:rgba(56,189,248,.5);
+  --rowline:#151d27; --optbg:#141a22; --opttx:#e6edf5; --grid:#182231;
+  --okbg:rgba(52,211,153,.09); --okbd:rgba(52,211,153,.22);
+  --warnbg:rgba(245,165,36,.09); --warnbd:rgba(245,165,36,.24);
+  --badbg:rgba(242,85,90,.10); --badbd:rgba(242,85,90,.26);
+  /* 密度 */
+  --pad:17px; --gap:14px; --gaprow:14px; --kpimin:118px; --chart:190px;
+  --fs:14px; --fs-kpi:31px; --tbl:12.5px; --tdpad:11px; --volmin:238px; --scr:214px;
+}
+
+/* ================= 主题：黑白（深） ================= */
+/* 黑白主题：底色与文字保持纯灰阶，但指标（健康/警告/危险、图表曲线、进度条）保留功能色 */
+html[data-theme="mono"]{
+  --bg:#000; --bg2:#000; --card:#0d0d0d; --card2:#080808;
+  --line:#242424; --line2:#3c3c3c;
+  --tx:#f4f4f4; --mut:#9b9b9b; --dim:#707070;
+  --acc:#6ea8fe; --teal:#53d2c8; --ok:#3ecf8e; --warn:#f5a524; --bad:#ff5c66; --pur:#a78bfa;
+  --glow1:rgba(255,255,255,.055); --glow2:rgba(255,255,255,.03);
+  --track:#1f1f1f; --sunk:#111; --sunk2:#181818; --scroll:#363636;
+  --mark1:#1b1b1b; --mark2:#0a0a0a; --markglow:rgba(110,168,254,.45);
+  --rowline:#1c1c1c; --optbg:#121212; --opttx:#f4f4f4; --grid:#232323;
+  --okbg:rgba(62,207,142,.10); --okbd:rgba(62,207,142,.26);
+  --warnbg:rgba(245,165,36,.10); --warnbd:rgba(245,165,36,.28);
+  --badbg:rgba(255,92,102,.12); --badbd:rgba(255,92,102,.30);
+}
+
+/* ================= 主题：纸白（浅） ================= */
+html[data-theme="paper"]{
+  --bg:#f3f3ef; --bg2:#fbfbf8; --card:#ffffff; --card2:#fcfcfa;
+  --line:#e3e3dd; --line2:#cbcbc3;
+  --tx:#15171a; --mut:#5b6167; --dim:#8a9098;
+  --acc:#1c1c1c; --teal:#3d3d3d; --ok:#333; --warn:#6a6a6a; --bad:#000; --pur:#555;
+  --glow1:rgba(0,0,0,.035); --glow2:rgba(0,0,0,.02);
+  --track:#e9e9e4; --sunk:#f7f7f3; --sunk2:#f1f1ec; --scroll:#c9c9c1;
+  --mark1:#efefea; --mark2:#e3e3dc; --markglow:rgba(0,0,0,.10);
+  --rowline:#eeeee8; --optbg:#fff; --opttx:#15171a; --grid:#e4e4de;
+  --okbg:rgba(0,0,0,.05); --okbd:rgba(0,0,0,.16);
+  --warnbg:rgba(0,0,0,.05); --warnbd:rgba(0,0,0,.28);
+  --badbg:#111; --badbd:#111;
+}
+
+/* ================= 主题：苹果玻璃（浅，毛玻璃卡片） ================= */
+html[data-theme="glass"]{
+  --bg:#eef1f7; --bg2:#f6f8fc;
+  --card:rgba(255,255,255,.62); --card2:rgba(255,255,255,.40);
+  --line:rgba(255,255,255,.75); --line2:rgba(255,255,255,.95);
+  --tx:#1d1d1f; --mut:#5f6470; --dim:#8e94a3;
+  --acc:#0071e3; --teal:#00a896; --ok:#34c759; --warn:#ff9f0a; --bad:#ff3b30; --pur:#af52de;
+  --glow1:rgba(10,132,255,.12); --glow2:rgba(191,90,242,.10);
+  --track:rgba(29,29,31,.08); --sunk:rgba(255,255,255,.55); --sunk2:rgba(255,255,255,.40); --scroll:rgba(29,29,31,.20);
+  --mark1:rgba(255,255,255,.80); --mark2:rgba(255,255,255,.45); --markglow:rgba(10,132,255,.55);
+  --rowline:rgba(29,29,31,.08); --optbg:#ffffff; --opttx:#1d1d1f; --grid:rgba(29,29,31,.08);
+  --okbg:rgba(52,199,89,.12); --okbd:rgba(52,199,89,.32);
+  --warnbg:rgba(255,159,10,.13); --warnbd:rgba(255,159,10,.34);
+  --badbg:rgba(255,59,48,.13); --badbd:rgba(255,59,48,.32);
+}
+/* 苹果风壁纸底：粉/蓝/青三团柔光 + 近白底 */
+html[data-theme="glass"] body{
+  background:
+    radial-gradient(1100px 700px at 88% -8%, rgba(255,110,185,.40), transparent 62%),
+    radial-gradient(980px 620px at -6% 6%, rgba(80,145,255,.36), transparent 60%),
+    radial-gradient(900px 620px at 30% 105%, rgba(105,225,185,.30), transparent 62%),
+    radial-gradient(700px 500px at 72% 60%, rgba(175,120,255,.16), transparent 60%),
+    linear-gradient(165deg,#e9eefb 0%,#f6f3ee 100%);
+  background-attachment:fixed;
+}
+html[data-theme="glass"] .card{
+  background:linear-gradient(180deg,rgba(255,255,255,.52),rgba(255,255,255,.28));
+  backdrop-filter:blur(26px) saturate(180%);
+  -webkit-backdrop-filter:blur(26px) saturate(180%);
+  border:1px solid rgba(255,255,255,.72);
+  box-shadow:0 10px 32px rgba(50,60,110,.16), inset 0 1px 0 rgba(255,255,255,.8);
+}
+html[data-theme="glass"] .skel{
+  background:linear-gradient(90deg,rgba(255,255,255,.45),rgba(255,255,255,.8),rgba(255,255,255,.45));
+  background-size:200% 100%}
+html[data-theme="glass"] .tip{box-shadow:0 8px 24px rgba(50,60,110,.22)}
+
+/* ================= 弱设备轻量模式（data-lite） ================= */
+/* 关闭 backdrop-filter 与 fixed 背景这两大 GPU 杀手，卡片改用不透明底 */
+html[data-lite] body{background-attachment:scroll!important}
+html[data-lite] .card{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html[data-lite] .tip{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html[data-lite] .mark:after{filter:none}
+html[data-lite] .ring svg{transform:rotate(-90deg)}
+html[data-lite][data-theme="glass"] .card{
+  background:rgba(255,255,255,.88);
+  box-shadow:0 6px 18px rgba(50,60,110,.10), inset 0 1px 0 rgba(255,255,255,.8)}
+html[data-lite][data-theme="glass"] body{
+  background:
+    radial-gradient(820px 540px at 86% -6%, rgba(255,110,185,.26), transparent 58%),
+    radial-gradient(820px 540px at -6% 8%, rgba(80,145,255,.24), transparent 56%),
+    linear-gradient(165deg,#e9eefb 0%,#f6f3ee 100%);
+  background-attachment:scroll}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(1100px 520px at 82% -10%, var(--glow1), transparent 62%),
+    radial-gradient(900px 480px at 8% 0%, var(--glow2), transparent 60%),
+    var(--bg);
+  color:var(--tx);
+  font:var(--fs)/1.55 ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  padding:22px clamp(14px,3vw,34px) 48px;
+}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1480px;margin:0 auto}
+
+/* ---------- header ---------- */
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:13px}
+.mark{width:38px;height:38px;border-radius:11px;border:1px solid var(--line2);
+  position:relative;overflow:hidden;
+  background:linear-gradient(150deg,var(--mark1),var(--mark2));display:grid;place-items:center}
+.mark:after{content:"";position:absolute;inset:-40% -10% auto;height:70%;
+  background:linear-gradient(90deg,transparent,var(--markglow),transparent);filter:blur(8px)}
+.mark svg{width:21px;height:21px;position:relative;z-index:1}
+h1{font-size:19px;font-weight:650;letter-spacing:.3px}
+h1 small{font-weight:400;color:var(--mut);font-size:12.5px;margin-left:9px;letter-spacing:0}
+.hstat{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--mut)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--line2);background:var(--card2);color:var(--tx);font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(52,211,153,.14)}
+.dot.busy{background:var(--acc);box-shadow:0 0 0 3px rgba(56,189,248,.16);animation:pulse 1.1s infinite}
+.dot.err{background:var(--bad);box-shadow:0 0 0 3px rgba(242,85,90,.16)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+button.ref{background:var(--card);border:1px solid var(--line2);color:var(--tx);border-radius:9px;
+  padding:7px 13px;font-size:12.5px;cursor:pointer;transition:.18s}
+button.ref:hover{border-color:var(--acc);color:var(--acc)}
+label.ivl{display:inline-flex;align-items:center;gap:6px;background:var(--card);
+  border:1px solid var(--line2);border-radius:9px;padding:0 4px 0 10px;height:31px;transition:.18s}
+label.ivl:hover{border-color:var(--acc)}
+label.ivl>span{font-size:12px;color:var(--dim)}
+label.ivl select{background:transparent;border:0;color:var(--tx);font-size:12.5px;
+  font-family:inherit;padding:4px 4px 4px 0;cursor:pointer;outline:none;appearance:none;
+  -webkit-appearance:none;padding-right:16px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),linear-gradient(135deg,var(--dim) 50%,transparent 50%);
+  background-position:calc(100% - 7px) 12px,calc(100% - 3px) 12px;
+  background-size:4px 4px,4px 4px;background-repeat:no-repeat}
+label.ivl select option{background:var(--optbg);color:var(--opttx)}
+
+/* ---------- layout ---------- */
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(4,1fr)}
+.row{grid-template-columns:2.05fr 1fr}
+.row2{grid-template-columns:1.35fr 1fr}
+.vols{grid-template-columns:repeat(auto-fit,minmax(238px,1fr))}
+@media(max-width:1180px){.kpis{grid-template-columns:repeat(2,1fr)}.row,.row2{grid-template-columns:1fr}}
+@media(max-width:620px){.kpis{grid-template-columns:1fr}}
+
+.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+  border-radius:var(--r);padding:16px 17px;position:relative;overflow:hidden}
+.card>.hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+.card>.hd h2{font-size:12px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--mut)}
+.tag{font-size:11px;color:var(--dim);letter-spacing:.4px}
+
+/* ---------- kpi ---------- */
+.kpi{display:flex;gap:14px;align-items:center;min-height:118px}
+.kpi .lbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);font-weight:600}
+.kpi .val{font-size:31px;font-weight:640;line-height:1.15;letter-spacing:-.6px;margin-top:5px}
+.kpi .val span{font-size:15px;color:var(--mut);font-weight:500;margin-left:2px}
+.kpi .sub{font-size:11.5px;color:var(--dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .body{min-width:0;flex:1}
+.ring{flex:0 0 auto;position:relative;width:66px;height:66px}
+.ring svg{transform:rotate(-90deg)}
+.ring .rv{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:650}
+.bar{height:5px;border-radius:99px;background:var(--track);overflow:hidden;margin-top:9px}
+.bar>i{display:block;height:100%;border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.split{display:flex;gap:10px;margin-top:9px}
+.split>div{flex:1;min-width:0}
+.mini-lbl{font-size:10.5px;color:var(--dim);display:flex;justify-content:space-between;gap:6px}
+.mini{height:4px;border-radius:99px;background:var(--track);overflow:hidden;margin-top:4px}
+.mini>i{display:block;height:100%;border-radius:99px}
+.net{display:flex;gap:16px;margin-top:2px}
+.net .n{font-size:20px;font-weight:640;letter-spacing:-.3px}
+.net .n small{font-size:11px;color:var(--mut);font-weight:500;letter-spacing:0;margin-left:3px}
+.arrow{font-size:11px;margin-right:3px}
+.up{color:var(--teal)} .down{color:var(--acc)}
+
+/* ---------- charts ---------- */
+.chartbox{position:relative;height:var(--chart)}
+.chartbox canvas{width:100%;height:100%;display:block}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--mut);align-items:center}
+.legend i{width:9px;height:3px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+
+/* ---------- 图表悬浮提示 ---------- */
+.tip{position:absolute;top:6px;left:0;display:none;pointer-events:none;z-index:6;
+  background:var(--card2);border:1px solid var(--line2);border-radius:9px;padding:6px 10px;
+  font-size:11.5px;line-height:1.5;white-space:nowrap;
+  box-shadow:0 8px 24px rgba(0,0,0,.28);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.tip .tt{font-size:10.5px;color:var(--dim);margin-bottom:2px}
+.tip .tr{display:flex;align-items:center;gap:7px}
+.tip .tr i{width:8px;height:8px;border-radius:2.5px;flex:0 0 auto}
+.tip .tr b{margin-left:auto;padding-left:12px;font-weight:640;font-variant-numeric:tabular-nums}
+html[data-theme="paper"] .tip{box-shadow:0 8px 24px rgba(0,0,0,.12)}
+
+/* ---------- warn ---------- */
+.warns{display:flex;flex-direction:column;gap:9px;max-height:var(--scr);overflow:auto}
+.warns::-webkit-scrollbar{width:5px}
+.warns::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:9px}
+.w{display:flex;gap:10px;padding:10px 11px;border-radius:10px;background:var(--sunk);border:1px solid var(--line)}
+.w i{flex:0 0 3px;border-radius:99px;background:var(--warn)}
+.w.danger i{background:var(--bad)} .w.info i{background:var(--acc)}
+.w b{font-size:12.5px;font-weight:600;display:block;margin-bottom:2px}
+.w p{font-size:11.5px;color:var(--mut);line-height:1.5}
+.empty{color:var(--dim);font-size:12.5px;padding:14px 4px;text-align:center}
+
+/* ---------- vols ---------- */
+.vol{padding:14px 15px}
+.vol .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
+.vol .nm{font-size:13.5px;font-weight:620}
+.vol .pc{font-size:15px;font-weight:650}
+.vol .mp{font-size:11px;color:var(--dim);margin-bottom:10px}
+.vol .amt{font-size:11.5px;color:var(--mut);margin-top:8px;display:flex;justify-content:space-between}
+
+/* ---------- table ---------- */
+table{width:100%;border-collapse:collapse;font-size:var(--tbl)}
+th{text-align:left;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);
+  font-weight:600;padding:0 10px 9px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:var(--tdpad) 10px var(--tdpad) 0;border-bottom:1px solid var(--rowline);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.dv{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--mut)}
+.model{font-weight:560}
+.model em{display:block;font-style:normal;font-size:11px;color:var(--dim);font-weight:400;margin-top:2px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 8px;border-radius:99px;
+  border:1px solid transparent;white-space:nowrap}
+.b-ok{color:var(--ok);background:var(--okbg);border-color:var(--okbd)}
+.b-warn{color:var(--warn);background:var(--warnbg);border-color:var(--warnbd)}
+.b-bad{color:var(--bad);background:var(--badbg);border-color:var(--badbd)}
+.b-mute{color:var(--mut);background:var(--sunk2);border-color:var(--line2)}
+html[data-theme="paper"] .b-bad{color:#fff}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- docker ---------- */
+.cts{display:flex;flex-wrap:wrap;gap:7px;max-height:var(--scr);overflow:auto}
+.ct{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:8px;
+  background:var(--sunk);border:1px solid var(--line);font-size:11.5px;max-width:100%;
+  cursor:pointer;transition:border-color .15s,opacity .15s}
+.ct span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ct small{flex:0 0 auto;font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+.ct:hover{border-color:var(--acc)}
+.ct.sel{border-color:var(--acc);background:var(--card2)}
+.ct.sel span{color:var(--acc)}
+.ct.off{opacity:.5}
+.sdot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:var(--ok)}
+.ct.off .sdot{background:var(--dim)}
+/* 容器明细展开面板 */
+.ctd{margin-top:12px;border:1px solid var(--line);border-radius:11px;background:var(--sunk);padding:13px 15px}
+.ctd .t{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:11px}
+.ctd .t b{font-size:13px;display:flex;align-items:center;gap:8px}
+.ctd .t em{font-style:normal;font-size:10.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:56%}
+.ctd .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 22px}
+.ctd .kv{font-size:11px;color:var(--mut);display:flex;justify-content:space-between;gap:8px}
+.ctd .kv b{color:var(--tx);font-weight:600;font-variant-numeric:tabular-nums}
+.ctd .kv b.acc{color:var(--acc)}
+.ctd .bar{margin-top:5px}
+html[data-density="compact"] .ctd{margin-top:8px;padding:9px 11px}
+html[data-density="compact"] .ctd .cols{gap:8px 14px}
+html[data-density="wide"] .ctd{margin-top:16px;padding:18px 20px}
+/* 阵列/传感器：宽屏双栏 */
+.raid2{display:grid;grid-template-columns:1fr 1fr;gap:0 26px}
+@media(max-width:900px){.raid2{grid-template-columns:1fr}}
+
+/* ---------- 自定义布局（编辑模式） ---------- */
+.mod{position:relative;min-width:0}
+.modbar{position:absolute;top:-27px;right:0;z-index:40;display:none;gap:5px;align-items:center}
+.modbar .grip{font-size:14px;color:var(--dim);padding:0 4px;cursor:grab;letter-spacing:2px;user-select:none}
+.modbar .mb{background:var(--card);border:1px solid var(--line2);color:var(--tx);border-radius:7px;
+  padding:3px 10px;font-size:12px;cursor:pointer;line-height:1.5;white-space:nowrap}
+.modbar .mb:hover{border-color:var(--acc);color:var(--acc)}
+body.editing .modbar{display:flex}
+body.editing .mod{margin-top:30px;outline:1px dashed var(--line2);outline-offset:6px;border-radius:14px;cursor:grab}
+body.editing .mod.dragging{opacity:.4;outline-style:solid;outline-color:var(--acc)}
+body.editing main{padding-bottom:26px}
+body:not(.editing) .mod-hide{display:none}
+body.editing .mod-hide{opacity:.32}
+
+/* 模块宽度：6 列网格，全宽/2/3/半/1/3，窄屏一律全宽 */
+main{grid-template-columns:repeat(6,1fr)}
+.mod{grid-column:span 6}
+.mod.w4{grid-column:span 4}
+.mod.w3{grid-column:span 3}
+.mod.w2{grid-column:span 2}
+/* 同一行模块等高：模块内卡片撑满网格项高度 */
+.mod{display:flex;flex-direction:column}
+.mod>*:not(.modbar){flex:1 1 auto}
+.mod>.card>.hd,.mod>.grid{flex:0 0 auto}
+.mod>.card>*:last-child{margin-bottom:0}
+/* 负载趋势：图表区自适应填满多出的高度 */
+.mod[data-mod="trend"] .card{display:flex;flex-direction:column}
+.mod[data-mod="trend"] .chartbox:first-of-type{flex:1 1 auto;min-height:150px}
+.mod[data-mod="trend"] .chartbox:last-of-type{flex:0 0 auto}
+@media(max-width:900px){
+  main{grid-template-columns:1fr}
+  .mod,.mod.w4,.mod.w3,.mod.w2{grid-column:auto}
+}
+.raid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:13px}
+.raid .r{font-size:11.5px;padding:5px 9px;border-radius:7px;background:var(--sunk);border:1px solid var(--line);color:var(--mut)}
+.raid .r b{color:var(--tx);font-weight:600}
+footer{margin-top:22px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  font-size:11.5px;color:var(--dim)}
+.skel{background:linear-gradient(90deg,#131b25,#1a2430,#131b25);background-size:200% 100%;
+  animation:sh 1.4s infinite;border-radius:6px;color:transparent!important}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ================= 密度：紧凑（一屏） ================= */
+html[data-density="compact"] body{padding:10px 14px 18px;font-size:12.5px}
+html[data-density="compact"] .wrap{max-width:1760px}
+html[data-density="compact"] header{margin-bottom:10px;align-items:center}
+html[data-density="compact"] h1{font-size:16px}
+html[data-density="compact"] .hstat{gap:9px;font-size:11.5px}
+html[data-density="compact"] .mark{width:30px;height:30px;border-radius:9px}
+html[data-density="compact"] .mark svg{width:17px;height:17px}
+html[data-density="compact"] .pill{padding:3px 8px;font-size:11px}
+html[data-density="compact"] .grid{gap:8px}
+html[data-density="compact"] .card{padding:10px 12px;border-radius:10px}
+html[data-density="compact"] .card>.hd{margin-bottom:6px}
+html[data-density="compact"] .card>.hd h2{font-size:11px;letter-spacing:1.1px}
+html[data-density="compact"] .kpi{min-height:76px;gap:10px}
+html[data-density="compact"] .kpi .val{font-size:23px;margin-top:0}
+html[data-density="compact"] .kpi .val span{font-size:12px}
+html[data-density="compact"] .kpi .sub{font-size:10.5px;margin-top:2px}
+html[data-density="compact"] .ring{width:50px;height:50px}
+html[data-density="compact"] .ring .rv{font-size:11px}
+html[data-density="compact"] .bar{margin-top:6px;height:4px}
+html[data-density="compact"] .split{margin-top:6px}
+html[data-density="compact"] .net .n{font-size:16px}
+html[data-density="compact"] .chartbox{height:116px}
+html[data-density="compact"] .warns,.cts{max-height:none}
+html[data-density="compact"] .w{padding:6px 9px;gap:8px}
+html[data-density="compact"] .w b{font-size:11.5px;margin-bottom:0}
+html[data-density="compact"] .w p{font-size:10.5px;line-height:1.4}
+html[data-density="compact"] .vol{padding:8px 10px}
+html[data-density="compact"] .vol .nm{font-size:12px}
+html[data-density="compact"] .vol .pc{font-size:13px}
+html[data-density="compact"] .vol .mp{margin-bottom:6px;font-size:10px}
+html[data-density="compact"] .vol .amt{margin-top:5px;font-size:10.5px}
+html[data-density="compact"] .vols{grid-template-columns:repeat(auto-fit,minmax(196px,1fr))}
+html[data-density="compact"] table{font-size:11.5px}
+html[data-density="compact"] th{padding-bottom:5px;font-size:10px}
+html[data-density="compact"] td{padding:6px 8px 6px 0}
+html[data-density="compact"] .model em{font-size:10px;margin-top:0}
+html[data-density="compact"] .badge{font-size:10px;padding:2px 6px}
+html[data-density="compact"] .ct{padding:4px 8px;font-size:10.5px}
+html[data-density="compact"] .raid{margin-bottom:7px;gap:5px}
+html[data-density="compact"] .raid .r{padding:3px 7px;font-size:10.5px}
+html[data-density="compact"] footer{margin-top:9px;font-size:10.5px}
+
+/* ================= 密度：宽松 ================= */
+html[data-density="wide"] body{padding:30px clamp(20px,4vw,56px) 64px;font-size:14.5px}
+html[data-density="wide"] header{margin-bottom:28px}
+html[data-density="wide"] .grid{gap:20px}
+html[data-density="wide"] .card{padding:22px 24px;border-radius:16px}
+html[data-density="wide"] .card>.hd{margin-bottom:17px}
+html[data-density="wide"] .kpi{min-height:144px;gap:18px}
+html[data-density="wide"] .kpi .val{font-size:37px;margin-top:8px}
+html[data-density="wide"] .ring{width:76px;height:76px}
+html[data-density="wide"] .chartbox{height:248px}
+html[data-density="wide"] .warns,.cts{max-height:282px}
+html[data-density="wide"] .w{padding:13px 14px}
+html[data-density="wide"] .w b{font-size:13px}
+html[data-density="wide"] .w p{font-size:12px}
+html[data-density="wide"] .vol{padding:18px 19px}
+html[data-density="wide"] .vols{grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+html[data-density="wide"] td{padding:15px 10px 15px 0}
+html[data-density="wide"] th{padding-bottom:11px}
+html[data-density="wide"] .ct{padding:8px 12px;font-size:12.5px}
+html[data-density="wide"] .raid{margin-bottom:16px}
+html[data-density="wide"] footer{margin-top:30px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <div class="mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.7" stroke-linecap="round">
+        <rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/>
+        <circle cx="7" cy="7" r=".9" fill="var(--acc)"/><circle cx="7" cy="17" r=".9" fill="var(--acc)"/>
+      </svg>
+    </div>
+    <div>
+      <h1>NAS 状态<small id="h-name" style="display:none">连接中…</small></h1>
+      <div class="hstat"><span id="h-kernel" class="mono">—</span></div>
+    </div>
+  </div>
+  <div class="hstat">
+    <span class="pill"><i class="dot busy" id="h-dot"></i><span id="h-state">正在采集</span></span>
+    <span id="h-uptime">—</span>
+    <span id="h-time" class="mono">—</span>
+    <label class="ivl"><span>布局</span>
+      <select id="dens" title="页面密度">
+        <option value="compact">紧凑一屏</option>
+        <option value="normal">标准</option>
+        <option value="wide">宽松</option>
+      </select>
+    </label>
+    <label class="ivl"><span>配色</span>
+      <select id="thm" title="配色方案">
+        <option value="night">暗色</option>
+        <option value="mono">黑白</option>
+        <option value="paper">纸白</option>
+        <option value="glass">苹果玻璃</option>
+      </select>
+    </label>
+    <label class="ivl"><span>刷新</span>
+      <select id="ivl" title="页面刷新间隔">
+        <option value="1">1 秒</option>
+        <option value="2">2 秒</option>
+        <option value="3">3 秒</option>
+        <option value="5">5 秒</option>
+        <option value="10">10 秒</option>
+        <option value="30">30 秒</option>
+        <option value="60">60 秒</option>
+      </select>
+    </label>
+    <button class="ref" id="layBtn" title="自定义模块顺序与显示">布局</button>
+    <button class="ref" id="layReset" style="display:none" title="恢复默认布局">恢复默认</button>
+    <button class="ref" id="btn">立即刷新</button>
+  </div>
+</header>
+
+<main class="grid" style="gap:14px">
+
+  <!-- KPI -->
+  <div class="mod" data-mod="kpis">
+  <section class="grid kpis">
+    <div class="card kpi">
+      <div class="body">
+        <div class="lbl">CPU</div>
+        <div class="val" id="k-cpu">—</div>
+        <div class="sub" id="k-cpu-sub">—</div>
+      </div>
+      <div class="ring">
+        <svg width="66" height="66" viewBox="0 0 66 66">
+          <circle cx="33" cy="33" r="27" fill="none" stroke="#1b2430" stroke-width="6"/>
+          <circle id="k-cpu-ring" cx="33" cy="33" r="27" fill="none" stroke="var(--teal)" stroke-width="6"
+                  stroke-linecap="round" stroke-dasharray="169.6" stroke-dashoffset="169.6"
+                  style="transition:stroke-dashoffset .6s ease,stroke .3s"/>
+        </svg>
+        <div class="rv" id="k-cpu-temp">—</div>
+      </div>
+    </div>
+
+    <div class="card kpi">
+      <div class="body">
+        <div class="lbl">内存</div>
+        <div class="val" id="k-mem">—</div>
+        <div class="bar"><i id="k-mem-bar" style="width:0;background:linear-gradient(90deg,var(--acc),var(--teal))"></i></div>
+        <div class="split">
+          <div>
+            <div class="mini-lbl"><span>物理</span><span id="k-mem-t">—</span></div>
+          </div>
+          <div>
+            <div class="mini-lbl"><span>SWAP</span><span id="k-swap-t">—</span></div>
+            <div class="mini"><i id="k-swap-bar" style="width:0;background:var(--pur)"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card kpi">
+      <div class="body">
+        <div class="lbl">网络</div>
+        <div class="net">
+          <div><div class="n up"><span class="arrow">↓</span><span id="k-rx">—</span><small>/s</small></div>
+            <div class="sub" id="k-rx-t">—</div></div>
+          <div><div class="n down"><span class="arrow">↑</span><span id="k-tx">—</span><small>/s</small></div>
+            <div class="sub" id="k-tx-t">—</div></div>
+        </div>
+        <div class="sub" id="k-if" style="margin-top:6px">—</div>
+      </div>
+    </div>
+
+    <div class="card kpi">
+      <div class="body">
+        <div class="lbl">存储总量</div>
+        <div class="val" id="k-st">—</div>
+        <div class="bar"><i id="k-st-bar" style="width:0;background:linear-gradient(90deg,var(--pur),var(--acc))"></i></div>
+        <div class="sub" id="k-st-sub" style="margin-top:8px">—</div>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <!-- 负载趋势（通栏） -->
+  <div class="mod" data-mod="trend">
+  <section class="card">
+    <div class="hd">
+      <h2>负载趋势</h2>
+      <div class="legend">
+        <span><i style="background:var(--teal)"></i>CPU</span>
+        <span><i style="background:var(--acc)"></i>内存</span>
+        <span class="tag" id="c-span">—</span>
+      </div>
+    </div>
+    <div class="chartbox"><canvas id="chart-main"></canvas></div>
+    <div class="chartbox" style="height:96px;margin-top:6px"><canvas id="chart-net"></canvas></div>
+  </section>
+  </div>
+
+  <!-- volumes -->
+  <div class="mod" data-mod="vols">
+  <section class="grid vols" id="vols"></section>
+  </div>
+
+  <!-- disks -->
+  <div class="mod" data-mod="disks">
+  <section class="card">
+    <div class="hd"><h2>硬盘与 SMART</h2><span class="tag" id="s-ts">—</span></div>
+    <div style="overflow:auto">
+      <table>
+        <thead><tr>
+          <th>设备 / 型号</th><th>容量</th><th>温度</th><th>通电</th>
+          <th>重分配</th><th>待映射</th><th>健康</th><th>判断</th>
+        </tr></thead>
+        <tbody id="tb"><tr><td colspan="8" class="empty">读取 SMART…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+  </div>
+
+  <!-- docker -->
+  <div class="mod" data-mod="docker">
+  <section class="card">
+    <div class="hd"><h2>容器</h2><span class="tag" id="d-cnt">—</span></div>
+    <div class="cts" id="cts"><div class="empty">—</div></div>
+    <div id="ctd" style="display:none"></div>
+  </section>
+  </div>
+
+  <!-- raid / temps -->
+  <div class="mod" data-mod="raid">
+  <section class="card">
+    <div class="hd"><h2>阵列 / 传感器</h2><span class="tag" id="r-ts">—</span></div>
+    <div class="raid2">
+      <div class="raid" id="raid"></div>
+      <div class="raid" id="temps"></div>
+    </div>
+  </section>
+  </div>
+
+  <!-- 告警 -->
+  <div class="mod" data-mod="warns">
+  <section class="card">
+    <div class="hd"><h2>告警</h2><span class="tag" id="w-cnt">—</span></div>
+    <div class="warns" id="warns"><div class="empty">检查中…</div></div>
+  </section>
+  </div>
+</main>
+
+<footer>
+  <span id="f-left">—</span>
+  <span id="f-right">—</span>
+</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const S = {snap:null, hist:[], meta:null, ctOpen:null};
+
+/* 主题色读取：Canvas 与内联颜色统一走 CSS 变量 */
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function tint(name,a){
+  let c=cssv(name).replace('#','');
+  if(c.length===3) c=c.split('').map(x=>x+x).join('');
+  const v=parseInt(c,16);
+  if(isNaN(v)) return cssv(name);
+  return 'rgba('+((v>>16)&255)+','+((v>>8)&255)+','+(v&255)+','+a+')';
+}
+
+/* ---------- 格式化 ---------- */
+function bytes(b, dec){
+  if(b==null) return '—';
+  const u=['B','KB','MB','GB','TB','PB']; let s=b,i=0;
+  while(s>=1024 && i<u.length-1){s/=1024;i++;}
+  return (i>=3 ? s.toFixed(dec==null?1:dec) : Math.round(s)) + ' ' + u[i];
+}
+function rate(b){
+  if(b==null) return '0';
+  if(b<1024) return Math.round(b)+' B';
+  if(b<1024*1024) return (b/1024).toFixed(1)+' K';
+  if(b<1024*1024*1024) return (b/1048576).toFixed(1)+' M';
+  return (b/1073741824).toFixed(2)+' G';
+}
+function dur(sec){
+  sec=Math.max(0,Math.floor(sec));
+  const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60);
+  if(d) return `${d} 天 ${h} 小时`;
+  if(h) return `${h} 小时 ${m} 分`;
+  return `${m} 分`;
+}
+function hours(h){
+  if(h==null) return '—';
+  return h>=1000 ? (h/1000).toFixed(1)+'k h' : h+' h';
+}
+function pct(v){ return (v==null? '—' : (v>=100? Math.round(v) : v.toFixed(1))+'%'); }
+function level(p){ return p>=90?'bad':p>=80?'warn':'ok'; }
+
+/* ---------- 主渲染 ---------- */
+function render(){
+  const sp=S.snap, m=S.meta||{};
+  if(!sp){ setState('err','无数据'); return; }
+
+  $('#h-name').textContent = sp.host.name || 'NAS';
+  $('#h-kernel').textContent = '内核 ' + (sp.host.kernel||'—') + ' · ' + sp.host.cores + ' 核';
+  $('#h-uptime').textContent = '已运行 ' + dur(sp.host.uptime);
+
+  // 状态
+  const age = m.now ? Math.max(0, m.now - (m.last_ok||m.now)) : 0;
+  if(m.error){ setState('err','采集失败'); }
+  else if(m.polling){ setState('busy','同步中'); }
+  else { setState('ok', age<5?'刚刚更新':age+' 秒前更新'); }
+
+  // CPU
+  const c=sp.cpu, cp=c.pct==null?0:c.pct;
+  $('#k-cpu').innerHTML = pct(c.pct).replace('%','<span>%</span>');
+  const load=sp.host.load.map(x=>x.toFixed(2)).join(' / ');
+  $('#k-cpu-sub').textContent = '负载 ' + load;
+  $('#k-cpu-temp').textContent = c.temp!=null ? Math.round(c.temp)+'°' : '—';
+  const ring=$('#k-cpu-ring'), circ=2*Math.PI*27;
+  ring.setAttribute('stroke-dashoffset', circ*(1-cp/100));
+  ring.setAttribute('stroke', cp>=90?cssv('--bad'):cp>=70?cssv('--warn'):cssv('--teal'));
+  $('#k-cpu-temp').style.color = (c.temp||0)>=80?cssv('--bad'):'var(--tx)';
+
+  // 内存
+  const mm=sp.mem;
+  $('#k-mem').innerHTML = pct(mm.used_pct).replace('%','<span>%</span>');
+  $('#k-mem-bar').style.width = Math.min(100,mm.used_pct)+'%';
+  $('#k-mem-bar').style.background = mm.used_pct>=90
+    ? 'linear-gradient(90deg,'+cssv('--bad')+','+cssv('--warn')+')' : 'linear-gradient(90deg,'+cssv('--acc')+','+cssv('--teal')+')';
+  $('#k-mem-t').textContent = bytes(mm.used_kb*1024)+' / '+bytes(mm.total_kb*1024);
+  $('#k-swap-t').textContent = mm.swap_total_kb ? pct(mm.swap_pct) : '无';
+  $('#k-swap-bar').style.width = Math.min(100,mm.swap_pct)+'%';
+  $('#k-swap-bar').style.background = mm.swap_pct>=90 ? cssv('--bad') : cssv('--pur');
+
+  // 网络
+  $('#k-rx').textContent = rate(sp.net.rx);
+  $('#k-tx').textContent = rate(sp.net.tx);
+  const main=sp.net.ifaces[0];
+  if(main){
+    $('#k-rx-t').textContent = '累计 ' + bytes(main.rx_total);
+    $('#k-tx-t').textContent = '累计 ' + bytes(main.tx_total);
+    $('#k-if').textContent = main.if + (sp.net.ifaces.length>1 ? ' 等 '+sp.net.ifaces.length+' 个网口' : '');
+  }
+
+  // 存储
+  const st=sp.storage_total;
+  $('#k-st').innerHTML = bytes(st.used)+' <span>/ '+bytes(st.size)+'</span>';
+  $('#k-st-bar').style.width = Math.min(100,st.pct)+'%';
+  $('#k-st-sub').textContent = '已用 ' + pct(st.pct) + ' · ' + sp.vols.length + ' 个卷';
+
+  // 告警
+  const ws=sp.warnings||[];
+  $('#w-cnt').textContent = ws.length ? ws.length+' 项' : '全部正常';
+  $('#warns').innerHTML = ws.length ? ws.map(w=>`
+    <div class="w ${w.level}"><i></i><div><b>${esc(w.title)}</b><p>${esc(w.text)}</p></div></div>
+  `).join('') : '<div class="empty">没有发现需要处理的问题</div>';
+
+  // 卷
+  $('#vols').innerHTML = (sp.vols||[]).map(v=>{
+    const lv=level(v.pct);
+    const col = lv==='bad'?cssv('--bad'):lv==='warn'?cssv('--warn'):'linear-gradient(90deg,'+cssv('--teal')+','+cssv('--acc')+')';
+    return `<div class="card vol">
+      <div class="top"><span class="nm">${esc(v.label)}</span>
+        <span class="pc ${lv==='bad'?'':''}" style="color:${lv==='bad'?cssv('--bad'):lv==='warn'?cssv('--warn'):'var(--tx)'}">${pct(v.pct)}</span></div>
+      <div class="mp mono">${esc(v.mount)}${v.kind==='external'?' · 外接':''}</div>
+      <div class="bar" style="margin-top:0"><i style="width:${Math.min(100,v.pct)}%;background:${col}"></i></div>
+      <div class="amt"><span>${bytes(v.used)} 已用</span><span>${bytes(v.avail)} 可用</span></div>
+    </div>`;
+  }).join('');
+
+  // 硬盘表
+  const sm=sp.smart||[];
+  if(sm.length){
+    $('#tb').innerHTML = sm.map(d=>{
+      const risk=d.risk||0;
+      const bcls = risk>=3?'b-bad':risk===2?'b-warn':'b-ok';
+      const btxt = risk>=3?'风险':risk===2?'注意':'良好';
+      const hp = d.nvme ? (d.used_pct!=null? '损耗 '+d.used_pct+'%' : (d.spare!=null? '余量 '+d.spare+'%':'—'))
+                        : (d.health||'—');
+      return `<tr>
+        <td><div class="model">${esc(d.model||d.dev)}<em>${esc(d.dev)}${d.serial?' · '+esc(d.serial):''}</em></div></td>
+        <td class="num">${esc(d.capacity||'—')}${d.rpm?'<div class="dv">'+esc(d.rpm)+'</div>':''}</td>
+        <td class="num" style="color:${(d.temp||0)>=55?cssv('--warn'):(d.temp||0)>=60?cssv('--bad'):'var(--tx)'}">${d.temp!=null?d.temp+'°C':'—'}</td>
+        <td class="num">${hours(d.hours)}</td>
+        <td class="num" style="color:${(d.realloc||0)>0?cssv('--warn'):'var(--mut)'}">${d.realloc==null?'—':d.realloc}</td>
+        <td class="num" style="color:${(d.pending||0)>0?cssv('--bad'):'var(--mut)'}">${d.pending==null?'—':d.pending}</td>
+        <td><span class="badge ${d.health==='PASSED'?'b-ok':'b-bad'}">${esc(hp)}</span></td>
+        <td><span class="badge ${bcls}">${btxt}</span>${risk?`<em style="display:block;font-style:normal;font-size:10.5px;color:var(--dim);margin-top:3px">${esc((d.notes||[])[0]||'')}</em>`:''}</td>
+      </tr>`;
+    }).join('');
+    $('#s-ts').textContent = sp.smart_ts ? 'SMART 读取于 ' + new Date(sp.smart_ts*1000).toLocaleTimeString('zh-CN') : '';
+  }
+
+  // 容器
+  const dk=sp.docker||{list:[]};
+  $('#d-cnt').textContent = `${dk.up} / ${dk.total} 运行中 · 点击看明细`;
+  $('#cts').innerHTML = (dk.list||[]).map(c=>{
+    const tip=[c.image, c.cpu!=null?`CPU ${c.cpu}%`:'', c.mem?`内存 ${(c.mem/1048576).toFixed(0)} MB`:''].filter(Boolean).join(' · ');
+    const m = c.mem!=null ? `<small>${(c.mem/1048576).toFixed(0)}M</small>` : '';
+    return `<div class="ct ${c.up?'':'off'}${S.ctOpen===c.name?' sel':''}" data-name="${esc(c.name)}" title="${esc(tip)}">
+      <i class="sdot"></i><span>${esc(c.name)}</span>${m}</div>`;
+  }).join('') || '<div class="empty">没有容器</div>';
+  renderCtDetail(dk);
+
+  // 阵列
+  $('#raid').innerHTML = (sp.raid||[]).map(r=>`
+    <div class="r"><b>${esc(r.dev)}</b> ${esc(r.level)} ${r.total?`${r.ok}/${r.total}`:''}
+      <span style="color:${r.degraded?cssv('--bad'):cssv('--ok')}">${r.degraded?'降级':'正常'}</span></div>`).join('')
+    || '<div class="r">未检测到软 RAID</div>';
+
+  const t=sp.temps||{};
+  const ts=[];
+  if(t.cpu!=null) ts.push(['CPU',t.cpu]);
+  if(t.hdd!=null) ts.push(['硬盘',t.hdd]);
+  if(t.nvme!=null) ts.push(['NVMe',t.nvme]);
+  if(t.pch!=null) ts.push(['芯片组',t.pch]);
+  if(t.gpu!=null) ts.push(['核显',t.gpu]);
+  $('#temps').innerHTML = ts.map(([k,v])=>`<div class="r"><b>${k}</b> <span style="color:${v>=75?cssv('--warn'):'var(--tx)'}">${Math.round(v)}°C</span></div>`).join('')
+    || '<div class="r">无温度传感器</div>';
+
+  $('#h-time').textContent = new Date().toLocaleTimeString('zh-CN');
+  $('#f-left').textContent = `采样 ${sp.poll_ms? (sp.poll_ms/1000).toFixed(2)+' 秒':'—'} · 服务端 ${m.interval||30} 秒 · 页面 ${IVL} 秒`;
+  $('#f-right').textContent = m.error ? '错误：'+m.error.slice(0,90) : `数据时间 ${new Date(sp.ts*1000).toLocaleString('zh-CN')}`;
+}
+
+function setState(kind, text){
+  const dot=$('#h-dot');
+  dot.className='dot'+(kind==='busy'?' busy':kind==='err'?' err':'');
+  $('#h-state').textContent=text;
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- 容器明细（点击标签展开/收起） ---------- */
+function renderCtDetail(dk){
+  const box=$('#ctd');
+  const list=dk.list||[];
+  const c=list.find(x=>x.name===S.ctOpen);
+  if(!c){ box.style.display='none'; box.innerHTML=''; return; }
+  const memSum=list.reduce((a,x)=>a+(x.mem||0),0)||1;
+  const cpuBar=Math.min(100,(c.cpu||0));            /* 单核基准 100% */
+  const memBar=Math.min(100,(c.mem||0)/memSum*100); /* 占全部容器内存比例 */
+  box.style.display='block';
+  box.innerHTML=`
+    <div class="t">
+      <b><i class="sdot" style="background:${c.up?'var(--ok)':'var(--dim)'}"></i>${esc(c.name)}</b>
+      <em>${esc(c.image||'镜像信息未采集')}</em>
+    </div>
+    <div class="cols">
+      <div>
+        <div class="kv"><span>运行状态</span>
+          <b style="color:${c.up?cssv('--ok'):cssv('--dim')}">${esc(c.status||'—')}</b></div>
+        <div class="kv" style="margin-top:8px"><span>健康检查</span>
+          <b>${c.healthy?'✔ 通过':'未配置 / 不适用'}</b></div>
+      </div>
+      <div>
+        <div class="kv"><span>CPU</span>
+          <b class="acc">${c.cpu!=null? c.cpu.toFixed(1)+'%':'—'}
+            <i style="font-style:normal;color:var(--dim);font-size:10px">单核基准</i></b></div>
+        <div class="bar"><i style="width:${cpuBar}%;background:linear-gradient(90deg,var(--teal),var(--acc))"></i></div>
+      </div>
+      <div>
+        <div class="kv"><span>内存</span><b class="acc">${c.mem!=null? bytes(c.mem):'—'}</b></div>
+        <div class="kv" style="margin-top:5px"><span>占全部容器</span>
+          <b>${((c.mem||0)/memSum*100).toFixed(1)}%</b></div>
+        <div class="bar"><i style="width:${memBar}%;background:linear-gradient(90deg,var(--pur),var(--acc))"></i></div>
+      </div>
+    </div>`;
+}
+
+/* 容器标签点击：展开该服务明细，再点一次收起 */
+$('#cts').addEventListener('click',e=>{
+  const el=e.target.closest('.ct'); if(!el) return;
+  const n=el.getAttribute('data-name');
+  S.ctOpen = (S.ctOpen===n)? null : n;
+  [...$('#cts').querySelectorAll('.ct')]
+    .forEach(ch=>ch.classList.toggle('sel', ch.getAttribute('data-name')===S.ctOpen));
+  renderCtDetail((S.snap&&S.snap.docker)||{list:[]});
+});
+
+/* ---------- 图表 ---------- */
+function chartTip(canvas){
+  const box=canvas.parentElement;
+  let tip=box.querySelector('.tip');
+  if(!tip){ tip=document.createElement('div'); tip.className='tip'; box.appendChild(tip); }
+  return tip;
+}
+
+function drawSeries(canvas, series, opts, hover){
+  /* 老设备限制画布倍率，避免 retina 上位图过大拖垮 GPU */
+  const LITE=document.documentElement.getAttribute('data-lite')==='1';
+  const dpr=Math.min(window.devicePixelRatio||1, LITE?1.5:2);
+  const rect=canvas.getBoundingClientRect();
+  const w=rect.width, h=rect.height;
+  if(!w||!h) return;
+  canvas.width=w*dpr; canvas.height=h*dpr;
+  const g=canvas.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,w,h);
+  const pad={l:34,r:8,t:8,b:18};
+  const iw=w-pad.l-pad.r, ih=h-pad.t-pad.b;
+  const pts=series[0]?.pts||[];
+  if(pts.length<2){
+    g.fillStyle=cssv('--dim'); g.font='12px ui-sans-serif'; g.textAlign='center';
+    g.fillText('正在积累数据…', w/2, h/2);
+    chartTip(canvas).style.display='none';
+    return;
+  }
+  let vmax=opts.max||0;
+  if(!opts.max) series.forEach(s=>s.pts.forEach(p=>{ if(p.v>vmax) vmax=p.v; }));
+  vmax = vmax<=0 ? 1 : vmax*1.15;
+  const t0=pts[0].t, t1=pts[pts.length-1].t, span=Math.max(1,t1-t0);
+  const X=t=>pad.l+((t-t0)/span)*iw;
+  const Y=v=>pad.t+ih-(Math.min(v,vmax)/vmax)*ih;
+  canvas._chart={series,opts,pad,t0,t1,iw,ih,vmax};
+
+  // 网格
+  g.strokeStyle=cssv('--grid'); g.lineWidth=1;
+  g.font='10px ui-monospace,Menlo,monospace'; g.fillStyle=cssv('--dim'); g.textAlign='right';
+  for(let i=0;i<=3;i++){
+    const y=pad.t+ih*(i/3);
+    g.beginPath(); g.moveTo(pad.l,y+.5); g.lineTo(w-pad.r,y+.5); g.stroke();
+    const val=vmax*(1-i/3);
+    g.fillText(opts.fmt? opts.fmt(val): Math.round(val)+'%', pad.l-6, y+3);
+  }
+  // 时间刻度
+  g.textAlign='center';
+  [0,.5,1].forEach(f=>{
+    const t=t0+span*f, x=pad.l+iw*f;
+    const d=new Date(t*1000);
+    g.fillText(d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}), x, h-4);
+  });
+
+  series.forEach(s=>{
+    g.beginPath();
+    s.pts.forEach((p,i)=>{ i? g.lineTo(X(p.t),Y(p.v)) : g.moveTo(X(p.t),Y(p.v)); });
+    if(s.fill){
+      g.save();
+      const grd=g.createLinearGradient(0,pad.t,0,pad.t+ih);
+      grd.addColorStop(0,s.fill); grd.addColorStop(1,'rgba(0,0,0,0)');
+      g.lineTo(X(s.pts[s.pts.length-1].t), pad.t+ih);
+      g.lineTo(X(s.pts[0].t), pad.t+ih);
+      g.closePath(); g.fillStyle=grd; g.fill(); g.restore();
+      // 重画线
+      g.beginPath();
+      s.pts.forEach((p,i)=>{ i? g.lineTo(X(p.t),Y(p.v)) : g.moveTo(X(p.t),Y(p.v)); });
+    }
+    g.strokeStyle=s.color; g.lineWidth=1.8; g.lineJoin='round'; g.stroke();
+    // 末端点
+    const last=s.pts[s.pts.length-1];
+    g.beginPath(); g.arc(X(last.t),Y(last.v),2.4,0,7); g.fillStyle=s.color; g.fill();
+  });
+
+  // 悬浮：十字线 + 各系列圆点 + 数值提示
+  const tip=chartTip(canvas);
+  if(hover==null){
+    tip.style.display='none'; canvas._hover=null;
+  }else{
+    canvas._hover=hover;
+    let idx=0,best=Infinity;
+    pts.forEach((p,i)=>{ const d=Math.abs(p.t-hover); if(d<best){ best=d; idx=i; } });
+    const xh=X(pts[idx].t);
+    g.setLineDash([3,3]); g.strokeStyle=cssv('--line2'); g.lineWidth=1;
+    g.beginPath(); g.moveTo(xh+.5,pad.t); g.lineTo(xh+.5,pad.t+ih); g.stroke();
+    g.setLineDash([]);
+    series.forEach(s=>{
+      const p=s.pts[idx]; if(!p) return;
+      g.beginPath(); g.arc(X(p.t),Y(p.v),3.4,0,7);
+      g.fillStyle=cssv('--bg'); g.fill();
+      g.strokeStyle=s.color; g.lineWidth=2; g.stroke();
+    });
+    let html='<div class="tt">'+new Date(pts[idx].t*1000)
+      .toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</div>';
+    series.forEach(s=>{
+      const p=s.pts[idx]; if(!p) return;
+      html+='<div class="tr"><i style="background:'+s.color+'"></i><span>'+s.name
+        +'</span><b>'+(opts.vfmt? opts.vfmt(p.v) : Math.round(p.v)+'%')+'</b></div>';
+    });
+    tip.innerHTML=html;
+    tip.style.display='block';
+    const tw=tip.offsetWidth||120;
+    let lx=xh+12; if(lx+tw>w-4) lx=xh-12-tw;
+    tip.style.left=Math.max(2,lx)+'px';
+    tip.style.top=(pad.t+2)+'px';
+  }
+}
+
+function drawCharts(){
+  const h=S.hist||[];
+  if(!h.length) return;
+  const cut = h[h.length-1].t - 3600;
+  const win = h.filter(p=>p.t>=cut);
+  const cm=$('#chart-main');
+  drawSeries(cm, [
+    {name:'CPU', pts:win.map(p=>({t:p.t,v:p.cpu})), color:cssv('--teal'), fill:tint('--teal',.22)},
+    {name:'内存', pts:win.map(p=>({t:p.t,v:p.mem})), color:cssv('--acc')},
+  ], {max:100, vfmt:v=>v.toFixed(1)+'%'}, cm._hover);
+  const cn=$('#chart-net');
+  const mx=Math.max(1,...win.map(p=>Math.max(p.rx,p.tx)));
+  drawSeries(cn, [
+    {name:'↓ 下载', pts:win.map(p=>({t:p.t,v:p.rx})), color:cssv('--acc'), fill:tint('--acc',.18)},
+    {name:'↑ 上传', pts:win.map(p=>({t:p.t,v:p.tx})), color:cssv('--pur')},
+  ], {max:mx*1.2, fmt:v=>rate(v)+'/s', vfmt:v=>rate(v)+'/s'}, cn._hover);
+  const first=win[0], last=win[win.length-1];
+  const mins=Math.round((last.t-first.t)/60)||1;
+  $('#c-span').textContent = '近 ' + (mins>=60? (mins/60).toFixed(1)+' 小时' : mins+' 分钟');
+}
+
+/* 图表悬浮交互：mousemove 取最近时间点重绘，mouseleave 恢复 */
+['chart-main','chart-net'].forEach(id=>{
+  const canvas=document.getElementById(id);
+  canvas.addEventListener('mousemove',e=>{
+    const c=canvas._chart;
+    if(!c || !c.series[0] || c.series[0].pts.length<2) return;
+    const rect=canvas.getBoundingClientRect();
+    const t=c.t0+((e.clientX-rect.left-c.pad.l)/c.iw)*(c.t1-c.t0);
+    drawSeries(canvas,c.series,c.opts,Math.max(c.t0,Math.min(c.t1,t)));
+  });
+  canvas.addEventListener('mouseleave',()=>{
+    const c=canvas._chart;
+    if(c) drawSeries(canvas,c.series,c.opts,null);
+  });
+});
+
+/* ---------- 轮询 ---------- */
+/* 接口基址：直连时为空；被飞牛统一网关代理时页面在 /app/<appname>/ 下，
+   所有请求必须带上同样的前缀，否则会打到飞牛的首页上。 */
+const BASE=(function(){
+  const m=location.pathname.match(/^(\/app\/[^/]+)(?:\/|$)/);
+  if(m) return m[1];
+  return location.pathname.replace(/\/(?:index\.html)?$/,'');
+})();
+let SNAP_ETAG=null;
+async function tick(){
+  try{
+    const r=await fetch(BASE+'/api/snapshot',{cache:'no-store',
+      headers: SNAP_ETAG? {'If-None-Match':SNAP_ETAG} : {}});
+    if(r.status===304) return;           /* 数据没变，服务端只回了头 */
+    const et=r.headers.get('ETag'); if(et) SNAP_ETAG=et;
+    const j=await r.json();
+    /* 同一帧数据不重复重渲染，老设备大幅减轻 DOM/重绘压力 */
+    if(!(S.snap && S.snap.ts===j.snapshot.ts)){
+      S.snap=j.snapshot; S.meta=j.meta;
+      render();
+    }
+  }catch(e){ setState('err','服务未响应'); }
+}
+async function tickHist(){
+  try{
+    const r=await fetch(BASE+'/api/history',{cache:'no-store'});
+    S.hist=(await r.json()).points||[];
+    drawCharts();
+  }catch(e){}
+}
+
+$('#btn').onclick=async()=>{
+  $('#btn').disabled=true; $('#btn').textContent='采集中…';
+  await fetch(BASE+'/api/refresh');
+  const t0=Date.now();
+  const timer=setInterval(async()=>{
+    await tick();
+    if(!S.meta?.polling || Date.now()-t0>25000){
+      clearInterval(timer);
+      $('#btn').disabled=false; $('#btn').textContent='立即刷新';
+      tickHist();
+    }
+  },1200);
+};
+
+/* ---------- 外观：布局密度 + 配色 ---------- */
+const TH_KEY='nasdash.theme', DN_KEY='nasdash.density';
+const thmSel=$('#thm'), denSel=$('#dens');
+function applyLook(){
+  const t=thmSel? thmSel.value : 'night';
+  const d=denSel? denSel.value : 'normal';
+  document.documentElement.setAttribute('data-theme',t);
+  document.documentElement.setAttribute('data-density',d);
+  try{ localStorage.setItem(TH_KEY,t); localStorage.setItem(DN_KEY,d); }catch(e){}
+  requestAnimationFrame(()=>{ drawCharts(); });
+}
+if(thmSel){
+  const t0=document.documentElement.getAttribute('data-theme')||'night';
+  thmSel.value=t0;
+  thmSel.onchange=applyLook;
+}
+if(denSel){
+  const d0=document.documentElement.getAttribute('data-density')||'normal';
+  denSel.value=d0;
+  denSel.onchange=applyLook;
+}
+
+/* ---------- 刷新间隔 ---------- */
+const IVL_KEY='nasdash.refresh';
+const LITE=document.documentElement.getAttribute('data-lite')==='1';
+const IVL_DEF=LITE?5:2;   /* 老设备默认放宽到 5 秒 */
+let IVL=IVL_DEF, tickTimer=null, histTimer=null;
+try{
+  const v=parseFloat(localStorage.getItem(IVL_KEY));
+  if(v>=1&&v<=600) IVL=v;
+}catch(e){}
+const sel=$('#ivl');
+if(sel){
+  if(![...sel.options].some(o=>+o.value===IVL)){
+    const o=document.createElement('option'); o.value=IVL; o.textContent=IVL+' 秒'; sel.appendChild(o);
+  }
+  sel.value=String(IVL);
+  sel.onchange=()=>{
+    IVL=Math.max(1,Math.min(600,parseFloat(sel.value)||IVL_DEF));
+    try{ localStorage.setItem(IVL_KEY,String(IVL)); }catch(e){}
+    startPolling();
+  };
+}
+function startPolling(){
+  clearTimeout(tickTimer); clearInterval(histTimer);
+  const loop=async()=>{
+    await tick();
+    tickTimer=setTimeout(loop, IVL*1000);
+  };
+  tickTimer=setTimeout(loop, IVL*1000);
+  histTimer=setInterval(tickHist, Math.max(12000, IVL*2000));
+}
+
+/* 后台标签页暂停轮询，避免 iPad/iPhone 内存压力导致 Safari 崩溃重载 */
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    clearTimeout(tickTimer); clearInterval(histTimer); tickTimer=null; histTimer=null;
+  }else{
+    tick(); tickHist(); startPolling();
+  }
+});
+
+/* ---------- 自定义布局：拖动排序 + 宽度并排 + 显示隐藏（localStorage 持久化） ---------- */
+const LAY_KEY='nasdash.layout';
+const MOD_NAMES={kpis:'总览',trend:'负载趋势',vols:'存储卷',disks:'硬盘 SMART',docker:'容器',raid:'阵列/传感器',warns:'告警'};
+const DEFAULT_ORDER=Object.keys(MOD_NAMES);
+const SPAN_CYCLE=[6,4,3,2];
+const SPAN_LBL={6:'全宽',4:'2/3 宽',3:'半宽',2:'1/3 宽'};
+const DEFAULT_SIZES={docker:3, raid:3};   /* 默认容器/阵列并排 */
+let LAYOUT={order:[],hidden:[],sizes:{}};
+try{
+  const l=JSON.parse(localStorage.getItem(LAY_KEY));
+  if(l && Array.isArray(l.order) && Array.isArray(l.hidden))
+    LAYOUT={order:l.order,hidden:l.hidden,sizes:(l.sizes&&typeof l.sizes==='object')?l.sizes:{}};
+}catch(e){}
+const mainEl=$('main');
+const sizeOf=id=> LAYOUT.sizes[id]!=null? LAYOUT.sizes[id] : (DEFAULT_SIZES[id]||6);
+
+function applySpan(mod){
+  const s=sizeOf(mod.dataset.mod);
+  mod.classList.remove('w4','w3','w2');
+  if(s!==6) mod.classList.add('w'+s);
+  const wb=mod.querySelector('[data-act=w]'); if(wb) wb.textContent=SPAN_LBL[s]||'全宽';
+}
+
+/* 注入模块工具条（宽度/上下移/隐藏），拖拽直接拖模块本体 */
+[...mainEl.querySelectorAll('.mod')].forEach(mod=>{
+  const bar=document.createElement('div'); bar.className='modbar';
+  const hid=LAYOUT.hidden.includes(mod.dataset.mod);
+  bar.innerHTML='<span class="grip" title="拖动排序">⠿</span>'
+    +'<button class="mb" data-act="w" title="切换宽度：全宽 / 2/3 / 半宽 / 1/3">'+SPAN_LBL[sizeOf(mod.dataset.mod)]+'</button>'
+    +'<button class="mb" data-act="up" title="上移">↑</button>'
+    +'<button class="mb" data-act="down" title="下移">↓</button>'
+    +'<button class="mb" data-act="eye">'+(hid?'显示':'隐藏')+'</button>';
+  mod.appendChild(bar);
+  applySpan(mod);
+});
+
+function applyLayout(){
+  const mods={}; [...mainEl.querySelectorAll('.mod')].forEach(el=>mods[el.dataset.mod]=el);
+  const order=(LAYOUT.order.length? LAYOUT.order.filter(id=>mods[id]) : DEFAULT_ORDER).slice();
+  [...mainEl.querySelectorAll('.mod')].forEach(el=>{ if(!order.includes(el.dataset.mod)) order.push(el.dataset.mod); });
+  order.forEach(id=>{ if(mods[id]) mainEl.insertBefore(mods[id], mainEl.querySelector('footer')); });
+  DEFAULT_ORDER.forEach(id=>{
+    if(!mods[id]) return;
+    mods[id].classList.toggle('mod-hide', LAYOUT.hidden.includes(id));
+    applySpan(mods[id]);
+  });
+  drawCharts();
+}
+function saveLayout(){
+  LAYOUT.order=[...mainEl.querySelectorAll('.mod')].map(el=>el.dataset.mod);
+  try{ localStorage.setItem(LAY_KEY, JSON.stringify(LAYOUT)); }catch(e){}
+}
+
+let EDIT=false;
+const layBtn=$('#layBtn'), layReset=$('#layReset');
+layBtn.onclick=()=>{
+  EDIT=!EDIT;
+  document.body.classList.toggle('editing',EDIT);
+  layBtn.textContent=EDIT?'完成布局':'布局';
+  layReset.style.display=EDIT?'':'none';
+  [...mainEl.querySelectorAll('.mod')].forEach(m=>m.draggable=EDIT);
+  if(!EDIT) drawCharts();
+};
+layReset.onclick=()=>{
+  LAYOUT={order:[],hidden:[],sizes:{}};
+  try{ localStorage.removeItem(LAY_KEY); }catch(e){}
+  [...mainEl.querySelectorAll('.mod')].forEach(m=>{
+    m.classList.remove('mod-hide','dragging');
+    const eb=m.querySelector('[data-act=eye]'); if(eb) eb.textContent='隐藏';
+  });
+  applyLayout();
+};
+
+/* 工具条按钮：宽度 / 上移 / 下移 / 显示隐藏 */
+mainEl.addEventListener('click',e=>{
+  const b=e.target.closest('.mb'); if(!b) return;
+  const mod=b.closest('.mod'); if(!mod) return;
+  const id=mod.dataset.mod;
+  if(b.dataset.act==='eye'){
+    const i=LAYOUT.hidden.indexOf(id);
+    if(i>=0){ LAYOUT.hidden.splice(i,1); b.textContent='隐藏'; }
+    else{ LAYOUT.hidden.push(id); b.textContent='显示'; }
+    mod.classList.toggle('mod-hide', LAYOUT.hidden.includes(id));
+    saveLayout(); drawCharts();
+  }else if(b.dataset.act==='w'){
+    const cur=sizeOf(id);
+    const nx=SPAN_CYCLE[(SPAN_CYCLE.indexOf(cur)+1)%SPAN_CYCLE.length];
+    LAYOUT.sizes[id]=nx;
+    applySpan(mod);
+    saveLayout(); drawCharts();
+  }else{
+    const sib = b.dataset.act==='up'? mod.previousElementSibling : mod.nextElementSibling;
+    if(!sib || !sib.classList.contains('mod')) return;
+    mainEl.insertBefore(mod, b.dataset.act==='up'? sib : sib.nextSibling);
+    saveLayout();
+  }
+});
+
+/* HTML5 拖拽排序（编辑模式下整块可拖；触屏设备用 ↑↓ 按钮） */
+mainEl.addEventListener('dragover',e=>{
+  if(!EDIT) return;
+  const drag=mainEl.querySelector('.mod.dragging'); if(!drag) return;
+  e.preventDefault();
+  const tgt=e.target.closest && e.target.closest('.mod');
+  if(!tgt || tgt===drag || !mainEl.contains(tgt)) return;
+  const r=tgt.getBoundingClientRect();
+  mainEl.insertBefore(drag, (e.clientY-r.top)<r.height/2 ? tgt : tgt.nextSibling);
+});
+mainEl.addEventListener('drop',e=>{ if(EDIT) e.preventDefault(); });
+mainEl.addEventListener('dragend',()=>{
+  saveLayout();
+  [...mainEl.querySelectorAll('.dragging')].forEach(x=>x.classList.remove('dragging'));
+});
+document.addEventListener('dragstart',e=>{
+  if(!EDIT) return;
+  const mod=e.target.closest && e.target.closest('.mod');
+  if(mod){ mod.classList.add('dragging'); if(e.dataTransfer) e.dataTransfer.effectAllowed='move'; }
+});
+
+applyLayout();
+
+tick(); tickHist();
+startPolling();
+setInterval(()=>{ if(S.snap) $('#h-time').textContent=new Date().toLocaleTimeString('zh-CN'); }, 1000);
+window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(drawCharts,180); });
+</script>
+</body>
+</html>

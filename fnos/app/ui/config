@@ -1,0 +1,15 @@
+{
+    ".url": {
+        "nasdash.Application": {
+            "title": "NAS 状态面板",
+            "desc": "CPU / 内存 / 网络 / 存储 / SMART / 容器 / 传感器 实时监控",
+            "icon": "images/icon_{0}.png",
+            "type": "iframe",
+            "protocol": "",
+            "gatewayPrefix": "/app/nasdash",
+            "gatewaySocket": "app.sock",
+            "url": "/app/nasdash/",
+            "allUsers": false
+        }
+    }
+}

@@ -1,0 +1,23 @@
+# 运行时数据：历史曲线、最后一次快照、请求日志
+/data/
+
+# 本地私有内容：部署脚本、密码、截图草稿、原始运维笔记
+/.local/
+/build/
+*.pass
+pass.txt
+
+# WorkBuddy 会话与项目记忆
+/.workbuddy/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 编辑器与系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp

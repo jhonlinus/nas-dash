@@ -1,0 +1,26 @@
+[Unit]
+Description=NAS Dash - read-only NAS monitoring dashboard
+Documentation=https://github.com/jhonlinus/nas-dash
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 采集要读 /sys、cgroup 和 smartctl，一般需要 root；
+# 只给 docker 组 + smartctl setuid 的话可以改成普通用户，代价是部分模块为空
+User=root
+WorkingDirectory=/opt/nasdash
+Environment=NASDASH_DATA=/opt/nasdash/data
+ExecStart=/usr/bin/python3 /opt/nasdash/nasdash.py \
+    --mode local --port 8066 --bind 127.0.0.1 --interval 5 --redact
+Restart=always
+RestartSec=5
+
+# 只读加固：除了自己的数据目录，不需要写任何地方
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/nasdash/data
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

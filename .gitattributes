@@ -1,0 +1,11 @@
+# 统一 LF：fpk 里的 shell 脚本、manifest 对换行敏感，Windows 检出也不能变 CRLF
+* text=auto eol=lf
+
+*.png binary
+*.PNG binary
+*.ico binary
+*.fpk binary
+*.gz binary
+
+# fnOS 生命周期脚本必须是可执行 + LF
+fnos/cmd/* text eol=lf

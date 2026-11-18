@@ -1,0 +1,58 @@
+# NAS Dash 反代示例：Nginx 对外 + Basic 认证 + 只读
+#
+# 下面这段可以整段放进 server { } 里，也可以作为 1Panel「网站 → 反向代理」
+# 之后追加的 proxy/00_hardening.conf（见 docs/1panel.md）。
+#
+# 记住三条：
+#   1. 只允许 GET/HEAD，其它方法一律 405
+#   2. 公网入口必须清空 X-Trim-* 三个头，否则可以伪造飞牛网关的登录态
+#   3. 用 headers-more 的 more_set_headers 设安全头，避免被 location 里的 add_header 吃掉
+
+server {
+    listen 443 ssl http2;
+    server_name dash.example.com;
+
+    ssl_certificate     /etc/nginx/ssl/dash.example.com.pem;
+    ssl_certificate_key /etc/nginx/ssl/dash.example.com.key;
+
+    server_tokens off;
+    access_log /var/log/nginx/dash.access.log;
+
+    # 面板里有历史曲线和容器明细，压缩收益明显
+    gzip on;
+    gzip_types text/html application/json text/css application/javascript;
+
+    location / {
+        auth_basic           "NAS Dash";
+        auth_basic_user_file /etc/nginx/dash.pass;
+
+        limit_except GET { deny all; }
+
+        proxy_pass         http://127.0.0.1:8066;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+
+        # 飞牛统一网关注入的登录身份，公网入口必须清掉
+        proxy_set_header   X-Trim-Userid   "";
+        proxy_set_header   X-Trim-Username "";
+        proxy_set_header   X-Trim-Isadmin  "";
+
+        proxy_read_timeout 30s;
+    }
+
+    # 数据目录（历史 JSON、请求日志）不对外
+    location ~ ^/data/ { return 404; }
+    location = /robots.txt { return 200 "User-agent: *\nDisallow: /\n"; }
+}
+
+# 安全头。如果 nginx 没编 headers-more 模块，把 more_set_headers 换成 add_header，
+# 并确认它不在有 add_header 的 location 里（否则会被覆盖）。
+more_set_headers "Strict-Transport-Security: max-age=31536000";
+more_set_headers "X-Content-Type-Options: nosniff";
+more_set_headers "X-Frame-Options: SAMEORIGIN";
+more_set_headers "Referrer-Policy: no-referrer";
+more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=()";
+more_set_headers "Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'";

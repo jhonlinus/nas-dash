@@ -1,0 +1,77 @@
+#!/bin/bash
+# NAS 状态面板（nasdash）生命周期脚本
+# TRIM_APPDEST = 程序目录  TRIM_PKGVAR = 运行时数据（升级保留）
+
+APP_DIR="${TRIM_APPDEST}"
+VAR_DIR="${TRIM_PKGVAR:-/var/apps/nasdash/var}"
+ETC_DIR="${TRIM_APPETC:-/var/apps/nasdash/etc}"
+DATA_DIR="$VAR_DIR/data"
+LOG="$VAR_DIR/nasdash.log"
+PIDFILE="$VAR_DIR/nasdash.pid"
+ENVFILE="$ETC_DIR/nasdash.env"
+
+mkdir -p "$VAR_DIR" "$DATA_DIR" "$ETC_DIR" 2>/dev/null
+
+# 默认参数；可在 /var/apps/nasdash/etc/nasdash.env 覆盖
+#   NASDASH_PORT / NASDASH_BIND / NASDASH_SOCK / NASDASH_AUTH / NASDASH_INTERVAL / NASDASH_DEBUG
+NASDASH_PORT="8066"          # 0 = 只走 socket，不监听 TCP
+NASDASH_BIND="127.0.0.1"     # 默认只给本机反代用；要局域网直连改 0.0.0.0
+NASDASH_SOCK="${APP_DIR}/app.sock"   # 飞牛统一网关入口（/app/nasdash/），置空则关闭
+NASDASH_AUTH=""              # 空 = 不认证；要密码就写 user:pass
+NASDASH_INTERVAL="5"
+NASDASH_DEBUG="0"            # 1 = 把 HTTP 请求写进 var/data/requests.log（排查网关/反代用）
+[ -f "$ENVFILE" ] && . "$ENVFILE"
+
+PY=""
+for c in python3 python; do
+    command -v "$c" >/dev/null 2>&1 && PY="$c" && break
+done
+
+running() {
+    [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null
+}
+
+do_start() {
+    running && return 0
+    if [ -z "$PY" ]; then
+        echo "[$(date '+%F %T')] 未找到 python3，无法启动 nasdash" >> "$LOG"
+        return 5
+    fi
+    cd "$APP_DIR" || return 1
+
+    ARGS=(--mode local --port "$NASDASH_PORT" --bind "$NASDASH_BIND"
+          --redact --interval "$NASDASH_INTERVAL")
+    [ -n "$NASDASH_SOCK" ] && ARGS+=(--sock "$NASDASH_SOCK")
+    [ -n "$NASDASH_AUTH" ] && ARGS+=(--auth "$NASDASH_AUTH")
+    [ "$NASDASH_DEBUG" = "1" ] && ARGS+=(--debug)
+
+    NASDASH_DATA="$DATA_DIR" nohup "$PY" "$APP_DIR/server/nasdash.py" "${ARGS[@]}" \
+        >> "$LOG" 2>&1 &
+    echo $! > "$PIDFILE"
+    sleep 1.5
+    if running; then
+        echo "[$(date '+%F %T')] started pid=$(cat "$PIDFILE") port=$NASDASH_PORT sock=$NASDASH_SOCK auth=${NASDASH_AUTH:-off}" >> "$LOG"
+        return 0
+    fi
+    echo "[$(date '+%F %T')] 启动失败，见上方日志" >> "$LOG"
+    return 5
+}
+
+do_stop() {
+    if running; then
+        p=$(cat "$PIDFILE")
+        kill "$p" 2>/dev/null
+        for _ in $(seq 1 20); do running || break; sleep 0.2; done
+        running && kill -9 "$p" 2>/dev/null
+        rm -f "$PIDFILE"
+        echo "[$(date '+%F %T')] stopped" >> "$LOG"
+    fi
+    return 0
+}
+
+case "$1" in
+start)  do_start ;;
+stop)   do_stop ;;
+status) running && exit 0 || exit 3 ;;
+*)      exit 1 ;;
+esac
